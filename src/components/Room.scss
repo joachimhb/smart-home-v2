@@ -1,0 +1,135 @@
+@use 'sass:math';
+
+@use '../variables.scss';
+
+.room {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 160px;
+  // max-width: 400px;
+  min-height: 180px;
+  padding: math.div(variables.$grid-step, 4);
+  margin: math.div(variables.$grid-step, 4);
+  border: 1px solid gray;
+
+  .room__header {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex: 0 0 auto;
+    border-bottom: 1px solid variables.$border-color;
+
+    .room__header__label {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .room__general-status {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: row;
+
+      .room__general-status__humidity,
+      .room__general-status__temperature {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: row;
+        align-items: center;
+        white-space: nowrap;
+      }
+
+      .room__general-status__humidity__value,
+      .room__general-status__temperature__value {
+        font-size: 10px;
+      }
+
+      .room__general-status__humidity__since,
+      .room__general-status__temperature__since {
+        font-size: 8px;
+        font-style: italic;
+      }
+
+      > * {
+        display: flex;
+        flex: 0 0 auto;
+        flex-direction: row;
+        margin: math.div(variables.$grid-step, 3);
+
+        > * {
+          margin-right: math.div(variables.$grid-step, 3);
+        }
+      }
+    }
+  }
+
+  .room__status {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+
+    .room__status__windows,
+    .room__status__fans {
+      display: flex;
+      flex: 1;
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+
+    .room__status__lights {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+  }
+
+  .room__general-status__heating__control {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 8px;
+    margin-left: 4px;
+
+    > * {
+      margin-left: 3px;
+      margin-right: 3px;
+    }
+
+    .room__general-status__heating__control__current-value {
+      font-weight: bold;
+      font-size: 12px;
+      text-align: center;
+      min-width: 32px;
+    }
+
+    .room__general-status__heating__control__button {
+      font-weight: bold;
+      font-size: 16px;
+      background: variables.$button-bg-color;
+      color: variables.$button-text-color;
+      min-width: 20px;
+      text-align: center;
+      cursor: pointer;
+    }
+  }
+
+  &.room--detailed {
+    .room__header {
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .room__general-status {
+      flex-direction: column;
+    }
+
+    .room__status__lights {
+      flex-direction: column;
+    }
+  }
+}

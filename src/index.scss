@@ -1,0 +1,91 @@
+@use 'sass:math';
+
+@use './variables.scss';
+@use './containers/index.scss' as containers-idx;
+@use './components/index.scss' as components-idx;
+
+* {
+  font-size: 12px;
+}
+
+html {
+  overflow: hidden;
+  background: variables.$bg-color;
+  color: variables.$text-color;
+}
+
+* {
+  min-height: 0;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: space-between;
+  background: variables.$header-bg-color;
+  color: variables.$header-text-color;
+  padding: variables.$grid-step;
+
+  > .header__label {
+    font-weight: bold;
+    font-size: 16px;
+  }
+
+  > .header__refresh {
+    color: variables.$text-color-clickable;
+    text-decoration: underline;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  > .header__websocket-connection {
+    width: 14px;
+    height: 14px;
+    border: 2px solid variables.$border-color;
+    border-radius: 20px;
+
+    &.header__websocket-connection--true {
+      background: lime;
+    }
+
+    &.header__websocket-connection--false {
+      background: red;
+    }
+  }
+}
+
+#root {
+  display: flex;
+  flex: 1;
+  overflow: auto;
+  flex-direction: column;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+button {
+  background: variables.$button-bg-color;
+  color: variables.$button-text-color;
+  border: 1px solid variables.$border-color;
+  border-radius: 3px;
+  font-size: 14px;
+
+  &.active {
+    font-weight: bold;
+    background: lime;
+  }
+
+  &.inactive {
+    font-weight: bold;
+    background: rgb(112, 16, 16);
+  }
+}
+
+input {
+  background: variables.$input-bg-color;
+  color: variables.$input-text-color;
+}

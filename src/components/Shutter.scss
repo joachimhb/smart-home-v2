@@ -1,0 +1,164 @@
+@use 'sass:math';
+
+@use '../variables.scss';
+
+@keyframes animateShutterControlDown {
+  0%{
+      opacity: 0;
+      transform: rotate(45deg) translate(-3px,-3px);
+  }
+  50%{
+      opacity: 1;
+  }
+  100%{
+      opacity: 0;
+      transform: rotate(45deg) translate(3px,3px);
+  }
+}
+
+@keyframes animateShutterControlUp {
+  0%{
+      opacity: 0;
+      transform: rotate(225deg) translate(-3px,-3px);
+  }
+  50%{
+      opacity: 1;
+  }
+  100%{
+      opacity: 0;
+      transform: rotate(225deg) translate(3px,3px);
+  }
+}
+
+.window__shutter {
+  display: flex;
+  flex-direction: row;
+
+  margin: math.div(variables.$grid-step, 2);
+  // padding: math.div(variables.$grid-step, 2);
+
+  .window__shutter__status {
+    border: 4px solid rgb(124, 43, 43);
+    border-radius: 2px;
+    min-height: 90px;
+    max-height: 90px;
+    min-width: 52px;
+    max-width: 52px;
+    background: lightblue;
+    position: relative;
+    margin-right: math.div(variables.$grid-step, 2);
+
+    .window__shutter__status__value {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgb(95, 95, 95);
+    }
+  }
+
+  .window__shutter__controls {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+
+    .window__shutter__controls__button.active {
+      background: initial;
+    }
+
+    .window__shutter__controls__button {
+      position: relative;
+    }
+
+    .window__shutter__controls__button--stop {
+      width: 20px;
+      height: 20px;
+
+      &.window__shutter__controls__button--stop.active {
+        > .pause > div {
+          background: variables.$button-text-color-active;
+        }
+      }
+
+      > .pause {
+        position: absolute;
+        top: 0;
+        right: 2px;
+        left: 2px;
+        bottom: 0;
+        display: flex;
+        flex: 1;
+        flex-direction: row;
+        justify-content: space-around;
+        align-items: center;
+
+        > div {
+          width: 3px;
+          height: 10px;
+          background: variables.$button-text-color;
+        }
+      }
+    }
+
+    .window__shutter__controls__button--down.active,
+    .window__shutter__controls__button--up.active {
+      > .arrow span {
+        border-bottom: 2px solid variables.$button-text-color-active;
+        border-right: 2px solid variables.$button-text-color-active;
+      }
+    }
+
+    .window__shutter__controls__button--down.active {
+      > .arrow span {
+        animation: animateShutterControlDown 2s infinite;
+      }
+    }
+
+    .window__shutter__controls__button--up.active {
+      > .arrow span {
+        animation: animateShutterControlUp 2s infinite;
+      }
+    }
+
+    .window__shutter__controls__button--up,
+    .window__shutter__controls__button--down {
+      width: 20px;
+      height: 26px;
+
+      > .arrow span {
+        display: block;
+        width: 5px;
+        height: 5px;
+        border-bottom: 2px solid variables.$button-text-color;
+        border-right: 2px solid variables.$button-text-color;
+        margin: -2px;
+      }
+    }
+
+    .window__shutter__controls__button--down {
+      > .arrow {
+        position: absolute;
+        top: 40%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+      }
+
+      > .arrow span {
+          transform: rotate(45deg);
+      }
+    }
+
+    .window__shutter__controls__button--up {
+      > .arrow {
+        position: absolute;
+        top: 60%;
+        left: 50%;
+        transform: translate(-50%,-50%);
+      }
+
+      > .arrow span {
+          transform: rotate(225deg);
+      }
+    }
+  }
+}

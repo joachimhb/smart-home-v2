@@ -1,0 +1,41 @@
+{
+  "name": "vite-react",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@influxdata/influxdb-client": "1.35.0",
+    "@joachimhb/smart-home-common": "github:joachimhb/smart-home-common#0.1.3",
+    "@reduxjs/toolkit": "2.9.2",
+    "classnames": "2.5.1",
+    "express": "5.1.0",
+    "fs-extra": "11.3.2",
+    "lodash-es": "4.17.21",
+    "log4js": "6.9.1",
+    "millisecond": "0.1.2",
+    "moment": "2.30.1",
+    "morgan": "1.10.1",
+    "pretty-ms": "9.3.0",
+    "processenv": "3.0.9",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-redux": "9.2.0",
+    "react-router": "7.9.4",
+    "recharts": "3.3.0",
+    "redux": "5.0.1",
+    "redux-logger": "3.0.6",
+    "redux-thunk": "3.1.0",
+    "sass-embedded": "1.93.2",
+    "superagent": "10.2.3",
+    "ws": "8.18.3"
+  },
+  "devDependencies": {
+    "@stheine/helpers": "1.2.1",
+    "@vitejs/plugin-react": "5.0.4",
+    "vite": "7.1.11"
+  },
+  "license": "MIT"
+}

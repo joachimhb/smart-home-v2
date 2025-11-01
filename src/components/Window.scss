@@ -1,0 +1,26 @@
+@use 'sass:math';
+
+@use '../variables.scss';
+
+.window {
+  min-width: 80px;
+  max-width: 120px;
+
+  margin: math.div(variables.$grid-step, 2);
+  padding: math.div(variables.$grid-step, 2);
+
+  .window__label {
+    font-weight: bold;
+    font-size: 12px;
+  }
+
+  .window__status {
+    font-size: 10px;
+    font-style: italic;
+  }
+
+  .window__since {
+    font-style: italic;
+    font-size: 10px;
+  }
+}

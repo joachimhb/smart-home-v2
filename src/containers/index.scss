@@ -1,0 +1,35 @@
+@use 'sass:math';
+
+@use '../variables.scss';
+
+@use './Overview.scss';
+@use './Room.scss';
+
+.smart-home__global-refresh {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #eee;
+  opacity: 0.8;
+}
+
+.overview-link {
+  padding: 3px;
+  margin-bottom: 10px;
+  color: variables.$text-color-clickable;
+  text-decoration: underline;
+}
+
+.room-link {
+  padding: 3px;
+  margin-top: 10px;
+  color: variables.$text-color-clickable;
+  text-decoration: underline;
+  align-self: flex-end;
+}

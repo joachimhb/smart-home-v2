@@ -1,0 +1,24 @@
+@use 'sass:math';
+
+@use '../variables.scss';
+
+.light {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+
+  .light__label {
+    font-weight: bold;
+    font-size: 12px;
+  }
+
+  .light__since {
+    font-style: italic;
+    font-size: 10px;
+  }
+
+  > * {
+    margin-right: variables.$grid-step;
+  }
+}

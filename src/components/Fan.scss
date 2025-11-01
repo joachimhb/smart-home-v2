@@ -1,0 +1,78 @@
+@use 'sass:math';
+
+@use '../variables.scss';
+
+.fan {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  border-top: 1px solid variables.$border-color;
+  border-bottom: 1px solid variables.$border-color;
+
+  .fan__header {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: math.div(variables.$grid-step, 2);
+
+    .fan__header__label {
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .fan__header__status {
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: row;
+      margin: variables.$grid-step;
+
+      .fan__header__status__control {
+        font-weight: bold;
+        color: variables.$text-color-red;
+
+        &.fan__header__status__control--auto {
+          color: variables.$text-color-blue;
+        }
+      }
+
+      .fan__header__status__value {
+        margin-left: math.div(variables.$grid-step, 2);
+        font-weight: bold;
+
+        &.fan__header__status__value--min {
+          color: lime;
+        }
+
+        &.fan__header__status__value--min {
+          color: green;
+        }
+
+        &.fan__header__status__value--off {
+          color: variables.$text-color-red;
+        }
+      }
+    }
+  }
+
+  .fan__details {
+    padding: math.div(variables.$grid-step, 2);
+
+    * {
+      font-size: 10px;
+    }
+
+    > * {
+      margin: math.div(variables.$grid-step, 4);
+      margin-right: math.div(variables.$grid-step, 2);
+    }
+  }
+
+  .fan__controls {
+    > * {
+      margin: math.div(variables.$grid-step, 2);
+      min-width: 50px;
+    }
+  }
+}
