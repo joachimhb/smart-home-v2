@@ -1,6 +1,8 @@
 import _ from 'lodash-es';
 import classNames from 'classnames';
 import React, {
+  // useEffect,
+  // useRef,
   useState,
 } from 'react';
 
@@ -9,7 +11,7 @@ import Fan from './Fan.jsx';
 import Window from './Window.jsx';
 import Shutter from './Shutter.jsx';
 
-import humanDate from '../lib/humanDate';
+import humanDateDiff from '../lib/humanDateDiff.js';
 
 import {
   updateShutterMovement,
@@ -17,8 +19,7 @@ import {
   updateFanSpeed,
   updateFanConfigValue,
   updateLightStatus,
-  // updateButtonActive,
-  // setShutterMoveTo,
+  triggerHeatingBoost,
 } from '../lib/controls';
 import RoomHistory from '../containers/RoomHistory.jsx';
 
@@ -32,8 +33,17 @@ const Room = function(props) {
 
   const {id: roomId} = config;
 
+  console.log({config, roomStatus});
+
   const [_detailed, setDetailed] = useState(Boolean(detailed));
-  const [_heatingTemperature, setHeatingTemperature] = useState(_.get(roomStatus, [roomId, 'heating', 'temperature'], 17));
+
+  const onHeatingBoost = () => {
+    triggerHeatingBoost(config.id);
+  };
+
+  const onHeatingPause = () => {
+    triggerHeatingBoost(config.id);
+  };
 
   const classes = [
     'room',
@@ -50,21 +60,13 @@ const Room = function(props) {
   let temperature = {};
 
   if(config.mainTemperature) {
-    const {type, id} = config.mainTemperature;
-
-    if(type === 'dht22') {
-      temperature = _.get(roomStatus, ['temperature', id, 'status'], {});
-    }
+    temperature = _.get(roomStatus, ['temperature', config.mainTemperature, 'status'], {});
   }
 
   let humidity = {};
 
   if(config.mainHumidity) {
-    const {type, id} = config.mainHumidity;
-
-    if(type === 'dht22') {
-      humidity = _.get(roomStatus, ['humidity', id, 'status'], {});
-    }
+    humidity = _.get(roomStatus, ['humidity', config.mainHumidity, 'status'], {});
   }
 
   const renderTemperature = () => {
@@ -79,7 +81,7 @@ const Room = function(props) {
     return (
       <div className='room__general-status__temperature' title={`Seit: ${since || 'unbekannt'}`}>
         <div className='room__general-status__temperature__value'>{finalTemperature || '-'} C</div>
-        {_detailed ? <div className='room__general-status__temperature__since'>seit {humanDate(since) || 'unbekannt'}</div> : null}
+        {_detailed ? <div className='room__general-status__temperature__since'>seit {humanDateDiff(since) || 'unbekannt'}</div> : null}
       </div>
     );
   };
@@ -94,39 +96,63 @@ const Room = function(props) {
     return (
       <div className='room__general-status__humidity' title={`Seit: ${since || 'unbekannt'}`}>
         <div className='room__general-status__humidity__value'>{value || '-'} %</div>
-        {_detailed ? <div className='room__general-status__humidity__since'>seit {humanDate(since) || 'unbekannt'}</div> : null}
+        {_detailed ? <div className='room__general-status__humidity__since'>seit {humanDateDiff(since) || 'unbekannt'}</div> : null}
       </div>
     );
   };
 
-  const onBoost = () => setHeatingTemperature(30);
+  const renderTemperatureStatus = () => {
+    if(!config.heating) {
+      return null;
+    }
+
+
+    const firstTrvId = Object.keys(roomStatus.heating_trv || {})[0];
+
+    if(!firstTrvId) {
+      return null;
+    }
+
+    const firstTrv = roomStatus.heating_trv[firstTrvId];
+    const heatingSet = firstTrv.temperature_set.value;
+    const heatingState = firstTrv.state.value;
+
+    let color = 'gray';
+
+    if(heatingSet > temperature.value) {
+      color = 'orange';
+
+      if(heatingState === 'heat') {
+        color = 'red';
+      }
+    }
+
+    return (
+      <div className='room__general-status__heating__status' style={{color, marginLeft: '36px'}}>
+        {heatingSet}C - {heatingState}
+      </div>
+    );
+  };
 
   const renderTemperatureControl = () => {
     if(!config.heating) {
       return null;
     }
 
-    const onPlus = () => setHeatingTemperature(_heatingTemperature + 0.5);
-    const onMinus = () => setHeatingTemperature(_heatingTemperature - 0.5);
-
-    let currentColor = null;
-
-    if(temperature.value < _heatingTemperature && Math.abs(_heatingTemperature - temperature.value || 0) > 1) {
-      currentColor = '#ad4d4d';
-    } else if(temperature.value > _heatingTemperature && Math.abs(_heatingTemperature - temperature.value || 0) > 1) {
-      currentColor = 'green';
+    if(_.get(roomStatus, ['heating', 'overall', 'boost', 'value']) === 'active') {
+      return <div>boosting...</div>;
     }
 
-    return [
-      <div key='control' className='room__general-status__heating__control'>
-        <div className='room__general-status__heating__control__button' onClick={() => onMinus()}>-</div>
-        <div className='room__general-status__heating__control__current-value' style={{color: currentColor}}>{_heatingTemperature}C</div>
-        <div className='room__general-status__heating__control__button' onClick={() => onPlus()}>+</div>
-      </div>,
-      <div key='boost' className='room__general-status__heating__control'>
-        <div style={{marginTop: '3px', marginLeft: '23px', paddingLeft: '4px', paddingRight: '4px'}} className='room__general-status__heating__control__button' onClick={() => onBoost()}>boost</div>
-      </div>,
-    ];
+    if(_.get(roomStatus, ['heating', 'overall', 'pause', 'value']) === 'active') {
+      return <div>pausing...</div>;
+    }
+
+    return (
+      <div className='room__general-status__heating__control'>
+        <button style={{marginTop: '3px', marginLeft: '20px', paddingLeft: '4px', paddingRight: '4px'}} onClick={() => onHeatingBoost()}>boost</button>
+        <button style={{marginTop: '3px', marginLeft: '10px', paddingLeft: '4px', paddingRight: '4px'}} onClick={() => onHeatingPause()}>pause</button>
+      </div>
+    );
   };
 
   const renderTemperatureAndHumidityDetails = () => {
@@ -141,7 +167,7 @@ const Room = function(props) {
           <td>{dht22.label || dht22.id}</td>
           <td>Temperature</td>
           <td>{_.isNil(thisTemperature.value) ? '-' : thisTemperature.value}C</td>
-          <td>{humanDate(thisTemperature.since)}</td>
+          <td>{humanDateDiff(thisTemperature.since)}</td>
         </tr>
       );
 
@@ -150,9 +176,43 @@ const Room = function(props) {
           <td>{dht22.label || dht22.id}</td>
           <td>Humidity</td>
           <td>{_.isNil(thisHumidity.value) ? '-' : thisHumidity.value}%</td>
-          <td>{humanDate(thisHumidity.since)}</td>
+          <td>{humanDateDiff(thisHumidity.since)}</td>
         </tr>
       );
+    }
+
+    for(const element of _.filter(config.zigbee || [], {type: 'roomthermostat'})) {
+      const {
+        type,
+        manufacturer,
+        id,
+        label,
+      } = element;
+      const data = _.get(roomStatus, [`${manufacturer}-${type}`, id, 'info'], {});
+
+      const since = humanDateDiff(data.since);
+
+      for(const [key, value] of Object.entries(data)) {
+        if(key === 'since') {
+          continue;
+        }
+
+        if(_.isPlainObject(value)) {
+          continue;
+        }
+
+        tempAndHumRows.push(
+          <tr key={id + key}>
+            {/* <td>{type}</td> */}
+            <td>{label || id}</td>
+            <td>{key}</td>
+            <td>{value}</td>
+            <td>{since}</td>
+          </tr>
+        );
+      }
+
+      // console.log(element, data);
     }
 
     return (
@@ -185,7 +245,7 @@ const Room = function(props) {
         <tr key={window.id}>
           <td>{window.label || window.id}</td>
           <td>{_.isNil(windowStatus.value) ? '-' : windowStatus.value}</td>
-          <td>{humanDate(windowStatus.since)}</td>
+          <td>{humanDateDiff(windowStatus.since)}</td>
         </tr>
       );
     }
@@ -225,7 +285,7 @@ const Room = function(props) {
           <td>{shutter.label || shutter.id}</td>
           <td>Status</td>
           <td>{_.isNil(shutterStatus.value) ? '-' : shutterStatus.value}%</td>
-          <td>{humanDate(shutterStatus.since)}</td>
+          <td>{humanDateDiff(shutterStatus.since)}</td>
         </tr>
       );
 
@@ -234,7 +294,7 @@ const Room = function(props) {
           <td>{shutter.label || shutter.id}</td>
           <td>Max</td>
           <td>{_.isNil(shutterMax.value) ? '-' : shutterMax.value}%</td>
-          <td>{humanDate(shutterMax.since)}</td>
+          <td>{humanDateDiff(shutterMax.since)}</td>
         </tr>
       );
     }
@@ -264,50 +324,41 @@ const Room = function(props) {
     );
   };
 
-  const renderHeatingTrvDetails = () => {
+  const renderTrvDetails = () => {
     const rows = [];
 
-    for(const trv of _.get(config, ['heating', 'trvs'], [])) {
-      const trvSetTemp = _.get(roomStatus, ['heating_trv', trv.id, 'temperature_set'], {});
-      const trvActualTemp = _.get(roomStatus, ['heating_trv', trv.id, 'temperature_actual'], {});
-      const trvSetValve = _.get(roomStatus, ['heating_trv', trv.id, 'valve_set'], {});
-      const trvActualValve = _.get(roomStatus, ['heating_trv', trv.id, 'valve_actual'], {});
+    for(const element of _.filter(config.zigbee || [], {type: 'heatingthermostat'})) {
+      const {
+        type,
+        manufacturer,
+        id,
+        label,
+      } = element;
+      const data = _.get(roomStatus, [`${manufacturer}-${type}`, id, 'info'], {});
 
-      rows.push(
-        <tr key={trv.id + 'temp__set'}>
-          <td>{trv.label || trv.id}</td>
-          <td>Temperature Set</td>
-          <td>{_.isNil(trvSetTemp.value) ? '-' : trvSetTemp.value}C</td>
-          <td>{humanDate(trvSetTemp.since)}</td>
-        </tr>
-      );
+      const since = humanDateDiff(data.since);
 
-      rows.push(
-        <tr key={trv.id + 'temp__actual'}>
-          <td>{trv.label || trv.id}</td>
-          <td>Temperature Actual</td>
-          <td>{_.isNil(trvActualTemp.value) ? '-' : trvActualTemp.value}C</td>
-          <td>{humanDate(trvActualTemp.since)}</td>
-        </tr>
-      );
+      for(const [key, value] of Object.entries(data)) {
+        if(key === 'since') {
+          continue;
+        }
 
-      rows.push(
-        <tr key={trv.id + 'valve__set'}>
-          <td>{trv.label || trv.id}</td>
-          <td>Valve Set</td>
-          <td>{_.isNil(trvSetValve.value) ? '-' : trvSetValve.value}%</td>
-          <td>{humanDate(trvSetValve.since)}</td>
-        </tr>
-      );
+        if(_.isPlainObject(value)) {
+          continue;
+        }
 
-      rows.push(
-        <tr key={trv.id + 'valve__actual'}>
-          <td>{trv.label || trv.id}</td>
-          <td>Valve Actual</td>
-          <td>{_.isNil(trvActualValve.value) ? '-' : trvActualValve.value}%</td>
-          <td>{humanDate(trvActualValve.since)}</td>
-        </tr>
-      );
+        rows.push(
+          <tr key={id + key}>
+            {/* <td>{type}</td> */}
+            <td>{label || id}</td>
+            <td>{key}</td>
+            <td>{value}</td>
+            <td>{since}</td>
+          </tr>
+        );
+      }
+
+      // console.log(element, data);
     }
 
     if(!rows.length) {
@@ -316,10 +367,11 @@ const Room = function(props) {
 
     return (
       <div key='heating-details'>
-        <div>TRVs</div>
+        <div>Zigbee</div>
         <table>
           <thead>
             <tr>
+              {/* <th>Type</th> */}
               <th>Name</th>
               <th>Type</th>
               <th>Status</th>
@@ -340,14 +392,18 @@ const Room = function(props) {
     }
 
     return (
-      <div>
+      <div style={{marginTop: '6px'}}>
         <RoomHistory id={roomId} config={config} />
-        <pre>{JSON.stringify(config, null, 2)}</pre>
-        <pre>{JSON.stringify(roomStatus, null, 2)}</pre>
         {renderTemperatureAndHumidityDetails()}
         {renderWindowDetails()}
         {renderShutterDetails()}
-        {renderHeatingTrvDetails()}
+        {renderTrvDetails()}
+        <div style={{overflow: 'auto'}}>
+          <div>STATUS</div>
+          <pre>{JSON.stringify(roomStatus, null, 2)}</pre>
+          <div>CONFIG</div>
+          <pre>{JSON.stringify(config, null, 2)}</pre>
+        </div>
       </div>
     );
   };
@@ -412,7 +468,7 @@ const Room = function(props) {
           key={id}
           detailed={_detailed}
           config={windowConfig}
-          status={_.get(roomStatus, ['windows', id, 'status'])}
+          status={_.get(roomStatus, ['window', id, 'status'])}
           shutter={shutter}
         />
       );
@@ -446,6 +502,7 @@ const Room = function(props) {
           {windowElements}
         </div>
         <div className='room__general-status__heating'>
+          {renderTemperatureStatus()}
           {renderTemperatureControl()}
         </div>
         {renderFullDetails()}

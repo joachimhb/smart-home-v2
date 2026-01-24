@@ -9,7 +9,7 @@ import connectWebsocket from './lib/connectWebsocket.js';
 
 const middlewares = [
   thunk,
-  logger,
+  // logger,
 ];
 
 const store = configureStore({

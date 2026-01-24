@@ -44,15 +44,15 @@ const RoomHistoryChart = function(props) {
   const zeroValue = 12;
 
   const fanStatusValue = {
-    'min': 20,
-    'max': 24,
-    'off': zeroValue,
-  }
+    min: 20,
+    max: 24,
+    off: zeroValue,
+  };
 
   const windowStatusValue = {
-    'open': 28,
-    'closed': zeroValue,
-  }
+    open: 28,
+    closed: zeroValue,
+  };
 
   const longData = _.get(storePart, ['data', 'long'], []);
 
@@ -72,8 +72,7 @@ const RoomHistoryChart = function(props) {
     dataByDay[day].count++;
     dataByDay[day].humiditySum += rec.humidity;
     dataByDay[day].temperatureSum += rec.temperature;
-  };
-
+  }
 
   const renderChart = (type, filter) => {
     const data = _.get(storePart, ['data', type], []);
@@ -118,7 +117,7 @@ const RoomHistoryChart = function(props) {
         windowStatus: windowStatusValue[rec.window] || zeroValue,
         temperature: rec.temperature,
         humidity: rec.humidity,
-      })
+      });
 
       temperatureSum += rec.temperature;
       humiditySum += rec.humidity;
@@ -143,12 +142,12 @@ const RoomHistoryChart = function(props) {
       const x = mom.valueOf();
 
       dayLines.push(
-        <ReferenceLine 
-          yAxisId='left' 
-          key={`${x}_day`} 
-          x={x} 
+        <ReferenceLine
+          yAxisId='left'
+          key={`${x}_day`}
+          x={x}
           // segment={[{x, y: 12}, {x, y: 30}]}
-          stroke='slategray' 
+          stroke='slategray'
           strokeWidth={0.2}
         >
           <Label value={label} position='insideTop' />
@@ -169,12 +168,12 @@ const RoomHistoryChart = function(props) {
         const x = mom.valueOf();
 
         hourLines.push(
-          <ReferenceLine 
-            yAxisId='left' 
-            key={x} 
-            x={x} 
+          <ReferenceLine
+            yAxisId='left'
+            key={x}
+            x={x}
             // segment={[{x, y: 12}, {x, y: 30}]}
-            stroke='slategray' 
+            stroke='slategray'
             strokeWidth={0.2}
           >
             <Label value={label} position='insideBottom' />
@@ -184,7 +183,7 @@ const RoomHistoryChart = function(props) {
         mom.subtract(1, 'hour');
       }
     }
-  
+
     return (
       <div className='room__history-chart' key={key}>
         <ResponsiveContainer width='98%' height={300}>
@@ -247,7 +246,7 @@ const RoomHistoryChart = function(props) {
     renderStats(),
   ]
 };
-  
+
 const mapStateToProps = state => ({
   roomStatusHistory: state.roomStatusHistory,
 });

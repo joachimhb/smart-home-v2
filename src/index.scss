@@ -46,7 +46,7 @@ html {
     border-radius: 20px;
 
     &.header__websocket-connection--true {
-      background: lime;
+      background: rgb(73, 133, 73);
     }
 
     &.header__websocket-connection--false {
@@ -76,7 +76,7 @@ button {
 
   &.active {
     font-weight: bold;
-    background: lime;
+    background: rgb(73, 133, 73);
   }
 
   &.inactive {

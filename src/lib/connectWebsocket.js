@@ -2,7 +2,7 @@ import {updateAutomationStatus}  from '../actions/automationStatus.js';
 import {updateRoomStatus}        from '../actions/roomStatus.js';
 import {setWebsocketConnection}  from '../actions/smartHome.js';
 
-const wsHost = `ws://localhost:3001`;
+const wsHost = `ws://${window.location.hostname}:3001`;
 
 const connectWebsocket = function({store}) {
   const ws = new WebSocket(wsHost);

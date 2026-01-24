@@ -1,4 +1,4 @@
-import classNames from 'classnames';
+// import classNames from 'classnames';
 import _ from 'lodash-es';
 
 import React from 'react';
@@ -7,10 +7,10 @@ import humanDate from '../lib/humanDate';
 const Window = function(props) {
   const {
     config  = {},
-   
+
     status  = {},
     shutter = null,
-    detailed
+    detailed,
   } = props;
 
   const {value, since} = status;
@@ -18,7 +18,7 @@ const Window = function(props) {
   let windowHumanValue = '???';
 
   if(!_.isNil(value)) {
-    windowHumanValue = value === 'open' ? 'offen' : 'geschlossen';
+    windowHumanValue = value === 'closed' ? 'geschlossen' : 'offen';
   }
 
   const renderDetails = () => {

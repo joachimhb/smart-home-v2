@@ -3,23 +3,39 @@ import _ from 'lodash-es';
 export default async function moveTo({influxDB, config}) {
   return {
     method: 'get',
-    path: '/room-status-history/:room/',
+    path: '/room-status-history/:room/:range',
     fn: async(req, res, next) => {
       try {
-        const {room} = req.params;
+        const {room, range} = req.params;
 
         const queryApi = influxDB.getQueryApi(config.influxDb.org);
+
+        let step = '1m';
+
+        if(range === '2h') {
+          step = '1m';
+        } else if(range === '6h') {
+          step = '2m';
+        } else if(range === '12h') {
+          step = '5m';
+        } else if(range === '24h') {
+          step = '10m';
+        } else if(range === '48h') {
+          step = '10m';
+        } else if(range === '7d') {
+          step = '1h';
+        }
 
         // 24h-Mittelwerte stündlich
         // |> filter(fn: (r) => r.type == "temperature" or r.type == "heating_overall" or r.type == "heating_trv" or r.type == "humidity" or r.type == "fan" or r.type == "window")
         const fluxQuery = `
 from(bucket: "${config.influxDb.bucket}")
-  |> range(start: -6h)
+  |> range(start: -${range})
   |> filter(fn: (r) => r._measurement == "data")
   |> filter(fn: (r) => r.room == "${room}")
 
   |> group(columns: ["type", "element_id", "_field"])
-  |> aggregateWindow(every: 1m, fn: mean)
+  |> aggregateWindow(every: ${step}, fn: mean)
   |> yield(name: "mean")
 `;
 
@@ -39,9 +55,17 @@ from(bucket: "${config.influxDb.bucket}")
             const records = [];
 
             for(const timestamp of Object.keys(byTimeStamp).sort()) {
+              const rounded = {
+                ...byTimeStamp[timestamp],
+              };
+
+              for(const key of Object.keys(rounded)) {
+                rounded[key] = _.round(rounded[key], 1);
+              }
+
               records.push({
                 timestamp,
-                ...byTimeStamp[timestamp],
+                ...rounded,
               });
             }
 

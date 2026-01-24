@@ -50,3 +50,21 @@ export const updateLightStatus = async(room, light, value) => {
 
   await client.put(url, {value});
 };
+
+export const triggerHeatingBoost = async(room, value) => {
+  const url = `${apiBase}rooms/${room}/heating/boost`;
+
+  await client.post(url, {value});
+};
+
+export const updateHeatingMode = async(room, value) => {
+  const url = `${apiBase}rooms/${room}/heating/mode`;
+
+  await client.put(url, {value});
+};
+
+export const updateHeatingTemperature = async(room, value) => {
+  const url = `${apiBase}rooms/${room}/heating/temperature`;
+
+  await client.put(url, {value});
+};

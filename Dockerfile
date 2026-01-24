@@ -1,27 +1,27 @@
-FROM node:20
+from node:20
 
 # ##############################################################################
 # Install all the base packages needed for the following installs
 # Set up timezone
 
-ENV DEBIAN_FRONTEND noninteractive
+#ENV DEBIAN_FRONTEND noninteractive
 
 RUN apt-get update
 RUN apt-get install -y apt-utils
 RUN apt-get upgrade -y
 
-RUN apt-get install -y curl
+#RUN apt-get install -y curl
 
 RUN \
   apt-get install -y \
-    curl \
+#    curl \
     dnsutils \
     locales \
-    sudo \
-    unzip \
+#    sudo \
+#    unzip \
     wget \
-    xz-utils \
-    python \
+#    xz-utils \
+#    python \
     vim
 
 RUN \
@@ -36,31 +36,32 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
 
-WORKDIR /source
+#WORKDIR /source
 
 # ##############################################################################
 # Install pigpio from http://abyz.me.uk/rpi/pigpio/index.html
 
-ARG PIGPIO_VERSION=72
-RUN \
-  apt-get install -y \
-    gcc \
-    make \
-    musl-dev
+#ARG PIGPIO_VERSION=72
+#RUN \
+#  apt-get install -y \
+#    gcc \
+#    make \
+#    musl-dev
 
-RUN wget -v https://github.com/joan2937/pigpio/archive/V$PIGPIO_VERSION.zip
-RUN unzip V$PIGPIO_VERSION
-RUN cd pigpio-$PIGPIO_VERSION && \
-  /bin/cat Makefile | sed 's/ldconfig//' > Makefile.tmp && \
-  mv Makefile.tmp Makefile && \
-  make && \
-  make install
+#RUN wget -v https://github.com/joan2937/pigpio/archive/V$PIGPIO_VERSION.zip
+#RUN unzip V$PIGPIO_VERSION
+#RUN cd pigpio-$PIGPIO_VERSION && \
+#  /bin/cat Makefile | sed 's/ldconfig//' > Makefile.tmp && \
+#  mv Makefile.tmp Makefile && \
+#  make && \
+#  make install
 
 COPY . /app
 
 WORKDIR /app
-RUN npm install --production
+RUN npm install
+RUN npx vite build
 
-ENV LD_LIBRARY_PATH /usr/local/lib/
+#ENV LD_LIBRARY_PATH /usr/local/lib/
 
 CMD ["/usr/local/bin/node", "/app/smart-home.js"]

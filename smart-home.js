@@ -11,12 +11,15 @@ import WebSocket, {
   WebSocketServer,
 }  from 'ws';
 
-import {InfluxDB, Point} from '@influxdata/influxdb-client';
+import {InfluxDB} from '@influxdata/influxdb-client';
 
 import registerRoutes from './lib/registerRoutes.js';
 
+import millisecond from 'millisecond';
+
 import SHC from '@joachimhb/smart-home-common';
 import Heating from './lib/Heating.js';
+import storePoints from './lib/storePoints.js';
 
 const {
   MqttClient,
@@ -31,9 +34,6 @@ const port = processenv('SMART_HOME_CONFIG_PORT', 3000);
 const wsPort = processenv('SMART_HOME_CONFIG_WEBSOCKET_PORT', 3001);
 
 const {
-  // shutterUp,
-  // shutterDown,
-  // shutterStop,
   shutterMovement,
   shutterStatus,
   shutterToggle,
@@ -61,128 +61,40 @@ const {
   automationInit,
 
   roomTemperatureStatus,
+  roomHumidityStatus,
 
   heatingSetTemperature,
   heatingTriggerBoost,
+  heatingSetMode,
+  heatingBoost,
+
   heatingTrvSetTemperature,
-  heatingTrvCurrentTemperature,
-  heatingTrvSetValve,
+  heatingTrvLocalTemperature,
+  heatingTrvExternalTemperature,
+  heatingTrvBattery,
+  heatingTrvLinkQuality,
   heatingTrvCurrentValve,
+  heatingTrvState,
+  heatingTrvMode,
+  roomThermostatBattery,
+  roomThermostatLinkQuality,
+
+  tuyaRoomthermostatInfo,
+  sonoffHeatingthermostatInfo,
+
+  zigbeeTuyaRoomthermostat,
+  zigbeeSonoffHeatingthermostat,
+  // zigbeeSonoffHeatingthermostatSet,
+
+  zigbeeTuyaSceneSwitch,
+  zigbeeSonoffSwitch,
+  zigbeeSonoffSwitchSet,
 } = topics;
 
 const logger = log4js.getLogger();
 
 logger.level = 'info';
 logger.level = 'debug';
-
-const storePoints = async(influxDB, config, roomStatus) => {
-  const writeApi = influxDB.getWriteApi(config.influxDb.org, config.influxDb.bucket, 'ns');
-  const allRoomIds = Object.keys(roomStatus);
-
-  const timestamp = new Date();
-
-  let points = 0;
-
-  for(const roomId of allRoomIds) {
-    const areaData = roomStatus[roomId];
-
-    for(const type of Object.keys(areaData)) {
-      for(const id of Object.keys(areaData[type] || {})) {
-        for(const valueType of Object.keys(areaData[type][id] || {})) {
-          const value = _.get(areaData, [type, id, valueType, 'value']);
-
-          // console.log([type, id, valueType], _.get(areaData, [type, id, valueType]));
-
-          if(_.isNil(value)) {
-            continue;
-          }
-
-          if(value === 'unknown') {
-            continue;
-          }
-
-          const point = new Point('data')
-            .tag('room', roomId)
-            .tag('type', type)
-            .tag('element_id', id)
-            .timestamp(timestamp);
-
-          if(['window', 'button'].includes(type) && valueType === 'status') {
-            if(value === 'open') {
-              point.floatField('open', 100);
-              point.floatField('closed', 0);
-            } else {
-              point.floatField('open', 0);
-              point.floatField('closed', 100);
-            }
-          } else if(type === 'light' && valueType === 'status') {
-            if(value === 'on') {
-              point.floatField('on', 100);
-              point.floatField('off', 0);
-            } else {
-              point.floatField('on', 0);
-              point.floatField('off', 100);
-            }
-          } else if(['temperature', 'humidity'].includes(type) && valueType === 'status') {
-            point.floatField(valueType, value);
-          } else if(['heating', 'heating_trv'].includes(type)) {
-            point.floatField(valueType, value);
-          } else if(type === 'fan') {
-            if(valueType === 'speed') {
-              if(value === 'max') {
-                point.floatField('max', 100);
-                point.floatField('min', 0);
-                point.floatField('off', 0);
-              } else if(value === 'min') {
-                point.floatField('max', 0);
-                point.floatField('min', 100);
-                point.floatField('off', 0);
-              } else {
-                point.floatField('max', 0);
-                point.floatField('min', 0);
-                point.floatField('off', 100);
-              }
-            } else if(valueType === 'control') {
-              if(value === 'auto') {
-                point.floatField('auto', 100);
-                point.floatField('manual', 0);
-              } else {
-                point.floatField('auto', 0);
-                point.floatField('manual', 100);
-              }
-            }
-          } else if(type === 'shutter') {
-            if(['status', 'max'].includes(valueType)) {
-              point.floatField(valueType, value);
-            } else if([valueType].includes('movement')) {
-              // ignore
-            } else {
-              logger.warn(`Unknown`, type, id, valueType, _.get(areaData, [type, id, valueType]));
-              continue;
-            }
-          } else {
-            logger.warn(`Unknown`, type, id, valueType, _.get(areaData, [type, id, valueType]));
-            continue;
-          }
-
-
-          // console.log(point);
-          writeApi.writePoint(point);
-          points++;
-        }
-      }
-    }
-  }
-
-
-  try {
-    await writeApi.close();
-
-    logger.info(`${points} points written `);
-  } catch(err) {
-    logger.error(`Failed to write ${points} points`, err);
-  }
-};
 
 (async function() {
   const config = (await import(url.pathToFileURL(configPath))).default;
@@ -195,6 +107,8 @@ const storePoints = async(influxDB, config, roomStatus) => {
     room: {},
     automation: {},
   };
+
+  const heatingMap = {};
 
   const app = express();
 
@@ -249,6 +163,194 @@ const storePoints = async(influxDB, config, roomStatus) => {
     logger,
   });
 
+  const handleZigbeeMessage = async(topic, data) => {
+    const [start, finalTopic] = topic.split('/');
+
+    const [
+      areaId,
+      manufacturer,
+      elementType,
+      elementId,
+    ] = finalTopic.split('~');
+
+    // logger.debug(`${topic}: `, {areaId, manufacturer, elementType, elementId}, data);
+    if(manufacturer === 'tuya' && elementType === 'roomthermostat') {
+      const {
+        temperature,
+        humidity,
+        battery,
+        linkquality,
+      } = data;
+
+      logger.debug(`${topic}: `, {areaId, manufacturer, elementType, elementId}, {
+        temperature,
+        humidity,
+        battery,
+        linkquality,
+      });
+
+      await mqttClient.publish(temperatureStatus(areaId, elementId), temperature, {retain: true});
+      await mqttClient.publish(humidityStatus(areaId, elementId), humidity, {retain: true});
+      await mqttClient.publish(roomThermostatBattery(areaId, elementId), battery, {retain: true});
+      await mqttClient.publish(roomThermostatLinkQuality(areaId, elementId), linkquality, {retain: true});
+      await mqttClient.publish(tuyaRoomthermostatInfo(areaId, elementId), data);
+    }
+
+    if(manufacturer === 'sonoff' && elementType === 'heatingthermostat') {
+      const {
+        local_temperature,
+        occupied_heating_setpoint,
+        external_temperature_input,
+        battery,
+        linkquality,
+        running_state,
+        system_mode,
+      } = data;
+
+      // logger.debug(`${topic}: `, {areaId, manufacturer, elementType, elementId}, {
+      //   local_temperature,
+      //   occupied_heating_setpoint,
+      //   external_temperature_input,
+      //   battery,
+      //   linkquality,
+      //   running_state,
+      //   system_mode,
+      // });
+
+      await mqttClient.publish(heatingTrvSetTemperature(areaId, elementId), occupied_heating_setpoint, {retain: true});
+      await mqttClient.publish(heatingTrvLocalTemperature(areaId, elementId), local_temperature, {retain: true});
+      await mqttClient.publish(heatingTrvExternalTemperature(areaId, elementId), external_temperature_input, {retain: true});
+      await mqttClient.publish(heatingTrvBattery(areaId, elementId), battery, {retain: true});
+      await mqttClient.publish(heatingTrvLinkQuality(areaId, elementId), linkquality, {retain: true});
+      await mqttClient.publish(heatingTrvState(areaId, elementId), running_state, {retain: true});
+      await mqttClient.publish(heatingTrvMode(areaId, elementId), system_mode, {retain: true});
+      await mqttClient.publish(sonoffHeatingthermostatInfo(areaId, elementId), data);
+    }
+
+    if(manufacturer === 'tuya' && elementType === 'sceneswitch') {
+      const {
+        action,
+      } = data;
+
+      const room = _.find(config.rooms, {id: areaId});
+
+      const zigbeeElement = _.find(room.zigbee || [], {manufacturer, type: elementType});
+
+      if(zigbeeElement) {
+        const actions = zigbeeElement.actions || {};
+        const actionConfig = actions[action];
+
+        if(actionConfig && topics[actionConfig.action]) {
+          await mqttClient.publish(topics[actionConfig.action](...actionConfig.actionParams));
+        }
+      }
+    }
+
+    if(manufacturer === 'sonoff' && elementType === 'switch') {
+      const {
+        state,
+      } = data;
+
+      logger.debug(`${topic}: `, {areaId, manufacturer, elementType, elementId, data});
+
+      const room = _.find(config.rooms, {id: areaId});
+
+      if(!room) {
+        return;
+      }
+
+      const zigbeeElement = _.find(room.zigbee || [], {manufacturer, type: elementType, id: elementId});
+
+      if(zigbeeElement) {
+        const sourcePath = [
+          'room',
+          areaId,
+          elementType,
+          elementId,
+          'status',
+        ].filter(Boolean);
+
+        const sourceLabel = zigbeeElement.label || `${areaId}: ${elementId}`;
+
+        const current = _.get(status, sourcePath, {value: 'unknown'});
+
+        logger.debug(`${sourceLabel} changed from '${current.value}' to '${state}'`, zigbeeElement);
+
+        if(current.value !== state) {
+          if(zigbeeElement.onChange && zigbeeElement.onChange.action === 'switchToggle') {
+            const {
+              room: dRoom,
+              id: dId,
+              manufacturer: dManufacturer,
+              type: dType,
+            } = zigbeeElement.onChange;
+
+            const destinationRoom = _.find(config.rooms, {id: dRoom});
+
+            if(destinationRoom) {
+              const destinationElement = _.find(destinationRoom.zigbee || [], {manufacturer: dManufacturer, type: dType, id: dId});
+
+              if(destinationElement) {
+                const destinationPath = [
+                  'room',
+                  dRoom,
+                  dType,
+                  dId,
+                  'status',
+                  'value',
+                ];
+
+                const destinationValue = _.get(status, destinationPath);
+
+                const destinationLabel = destinationElement.label || `${dRoom}: ${destinationElement.id}`;
+
+                const thisTopic = zigbeeSonoffSwitchSet(dRoom, dId);
+
+                let newState = 'OFF';
+
+                if(destinationValue === 'OFF') {
+                  newState = 'ON';
+                }
+
+                logger.info(`Setting ${destinationLabel} state to ${newState} with topic '${thisTopic}'`, destinationElement);
+                await mqttClient.publish(thisTopic, {state: newState});
+              }
+            }
+          } else {
+            logger.debug(`No action defined for ${sourceLabel}`);
+          }
+
+          _.set(status, sourcePath, {value: state, since: new Date()});
+        }
+      }
+    }
+  };
+
+  const handleAutomationMessage = async(topic, data) => {
+    const [
+      area,
+      areaId,
+    ] = topic.split('/');
+
+    const finalPath = [area, areaId];
+
+    const current = _.get(status, finalPath, {value: 'unknown'});
+
+    _.set(status, finalPath, data);
+
+    if(current.value !== data.value) {
+      logger.debug(topic, current, data);
+
+      const updated = {
+        type: 'automation',
+        id: areaId,
+        status: status.automation[areaId],
+      };
+
+      clientsBroadcast(updated);
+    }
+  };
+
   const handleMqttMessage = async(topic, data) => {
     const [
       area,
@@ -258,87 +360,125 @@ const storePoints = async(influxDB, config, roomStatus) => {
       subArea,
     ] = topic.split('/');
 
-    if(['room', 'automation'].includes(area)) {
-      if(area === 'automation') {
-        const finalPath = [area, areaId];
+    if(area === 'zigbee2mqtt') {
+      return handleZigbeeMessage(topic, data);
+    }
 
-        const current = _.get(status, finalPath, {value: 'unknown'});
+    if(area === 'automation') {
+      return handleAutomationMessage(topic, data);
+    }
 
-        _.set(status, finalPath, data);
+    if(area === 'room') {
+      const finalPath = [
+        area,
+        areaId,
+        element,
+        elementId,
+        subArea,
+      ].filter(Boolean);
 
-        if(current.value !== data.value) {
-          logger.debug(topic, current, data);
+      const current = _.get(status, finalPath, {value: 'unknown'});
+      const room = _.find(config.rooms, {id: areaId});
 
-          const updated = {
-            type: 'automation',
-            id: areaId,
-            status: status.automation[areaId],
-          };
+      if(!room) {
+        return;
+      }
 
-          clientsBroadcast(updated);
+      _.set(status, finalPath, data);
+
+      if(current.value !== data.value) {
+        // logger.debug(topic, current, data);
+
+        const updated = {
+          type: 'room',
+          id: areaId,
+          status: status.room[areaId],
+        };
+
+        clientsBroadcast(updated);
+      }
+
+      if(element === 'window') {
+        const window = _.find(room.windows || [], {id: elementId});
+
+        if(window && window.shutterId) {
+          if(data.value === 'opened') {
+            await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 80}, {retain: true});
+          } else if(data.value === 'closed') {
+            await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 100}, {retain: true});
+          }
         }
       }
 
-      if(area === 'room') {
-        const finalPath = [
-          area,
-          areaId,
-          element,
-          elementId,
-          subArea,
-        ].filter(Boolean);
+      if(element === 'temperature') {
+        const mainTemperatureId =  _.get(room, ['mainTemperature']);
 
-        const current = _.get(status, finalPath, {value: 'unknown'});
+        if(mainTemperatureId === elementId) {
+          await mqttClient.publish(roomTemperatureStatus(areaId), data.value, {retain: true});
+        }
+      }
 
-        _.set(status, finalPath, data);
+      if(element === 'humidity') {
+        const mainHumidityId =  _.get(room, ['mainHumidity']);
 
-        if(current.value !== data.value) {
-          logger.debug(topic, current, data);
+        if(mainHumidityId === elementId) {
+          await mqttClient.publish(roomHumidityStatus(areaId), data.value, {retain: true});
+        }
+      }
 
-          const updated = {
-            type: 'room',
-            id: areaId,
-            status: status.room[areaId],
-          };
+      if(topic === roomTemperatureStatus(areaId) && heatingMap[areaId]) {
+        await heatingMap[areaId].setExternalTemperature(data.value);
+      }
 
-          clientsBroadcast(updated);
+      if(topic === heatingSetMode(areaId) && heatingMap[areaId]) {
+        await heatingMap[areaId].setMode(data.value);
+      }
+
+      // if(topic === heatingSetTemperature(areaId) && heatingMap[areaId]) {
+      //   await heatingMap[areaId].setHeatingTemperature(data.value);
+      // }
+
+      if(topic === heatingTriggerBoost(areaId) && heatingMap[areaId]) {
+        const roomStatus = _.get(status, ['room', areaId], {});
+
+        if(_.get(roomStatus, ['heating', 'overall', 'boost', 'value']) === 'active') {
+          return;
         }
 
-        if(element === 'window') {
-          const room = _.find(config.rooms, {id: areaId});
 
-          if(room) {
-            const window = _.find(room.windows || [], {id: elementId});
+        await mqttClient.publish(heatingBoost(areaId), 'active');
 
-            if(window && window.shutterId) {
-              if(data.value === 'opened') {
-                await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 80}, {retain: true});
-              } else if(data.value === 'closed') {
-                await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 100}, {retain: true});
-              }
-            }
-          }
-        }
+        await heatingMap[areaId].setHeatingTemperature(27);
 
-        if(element === 'temperature') {
-          const room = _.find(config.rooms, {id: areaId});
-          const mainTemperatureId =  _.get(room, ['mainTemperature', 'id']);
-
-          if(mainTemperatureId === elementId) {
-            await mqttClient.publish(roomTemperatureStatus(areaId), data.value, {retain: true});
-          }
-        }
+        setTimeout(async () => {
+          await mqttClient.publish(heatingBoost(areaId), 'inactive');
+          await heatingMap[areaId].setAuto();
+        }, millisecond('10m'));
       }
     }
   };
 
   await mqttClient.init(handleMqttMessage);
 
+  for(const room of config.rooms) {
+    if(room.heating) {
+      heatingMap[room.id] = new Heating({
+        status: status.room[room.id],
+        room,
+        logger,
+        mqttClient,
+      });
+
+      heatingMap[room.id].init();
+    }
+  }
+
   registerRoutes(app, {
     mqttClient,
     logger,
     config,
     influxDB,
+    heatingMap,
   });
 
   // eslint-disable-next-line no-unused-vars
@@ -398,6 +538,7 @@ const storePoints = async(influxDB, config, roomStatus) => {
 
   for(const room of config.rooms) {
     await mqttClient.subscribe(roomTemperatureStatus(room.id));
+    await mqttClient.subscribe(roomHumidityStatus(room.id));
 
     for(const shutter of room.shutters || []) {
       await mqttClient.subscribe(shutterMovement(room.id, shutter.id));
@@ -436,31 +577,60 @@ const storePoints = async(influxDB, config, roomStatus) => {
       await mqttClient.subscribe(temperatureStatus(room.id, dht22.id));
     }
 
+    for(const element of room.zigbee || []) {
+      const {
+        type,
+        manufacturer,
+        id,
+      } = element;
+
+      if(manufacturer === 'tuya' && type === 'roomthermostat') {
+        await mqttClient.subscribe(zigbeeTuyaRoomthermostat(room.id, id));
+        await mqttClient.subscribe(tuyaRoomthermostatInfo(room.id, id));
+        await mqttClient.subscribe(roomThermostatBattery(room.id, id));
+        await mqttClient.subscribe(roomThermostatLinkQuality(room.id, id));
+
+        await mqttClient.subscribe(temperatureStatus(room.id, id));
+        await mqttClient.subscribe(humidityStatus(room.id, id));
+      }
+
+      if(manufacturer === 'sonoff' && type === 'heatingthermostat') {
+        await mqttClient.subscribe(heatingTrvSetTemperature(room.id, id));
+        await mqttClient.subscribe(heatingTrvLocalTemperature(room.id, id));
+        await mqttClient.subscribe(heatingTrvExternalTemperature(room.id, id));
+        await mqttClient.subscribe(heatingTrvBattery(room.id, id));
+        await mqttClient.subscribe(heatingTrvLinkQuality(room.id, id));
+        await mqttClient.subscribe(heatingTrvState(room.id, id));
+        await mqttClient.subscribe(heatingTrvMode(room.id, id));
+        await mqttClient.subscribe(zigbeeSonoffHeatingthermostat(room.id, id));
+        await mqttClient.subscribe(sonoffHeatingthermostatInfo(room.id, id));
+
+        await mqttClient.subscribe(heatingTrvCurrentValve(room.id, id));
+      }
+
+      if(manufacturer === 'tuya' && type === 'sceneswitch') {
+        await mqttClient.subscribe(zigbeeTuyaSceneSwitch(room.id, id));
+      }
+
+      if(manufacturer === 'sonoff' && type === 'switch') {
+        await mqttClient.subscribe(zigbeeSonoffSwitch(room.id, id));
+      }
+    }
+
     if(room.heating) {
       await mqttClient.subscribe(heatingSetTemperature(room.id));
       await mqttClient.subscribe(heatingTriggerBoost(room.id));
+      await mqttClient.subscribe(heatingBoost(room.id));
+      await mqttClient.subscribe(heatingSetMode(room.id));
 
-      for(const trv of room.heating.trvs || []) {
-        await mqttClient.subscribe(heatingTrvSetTemperature(room.id, trv.id));
-        await mqttClient.subscribe(heatingTrvCurrentTemperature(room.id, trv.id));
-        await mqttClient.subscribe(heatingTrvSetValve(room.id, trv.id));
-        await mqttClient.subscribe(heatingTrvCurrentValve(room.id, trv.id));
-      }
-
-      const heating = new Heating({
-        status: status.room[room.id],
-        room,
-        logger,
-        mqttClient,
-      });
-
-      heating.init();
+      await mqttClient.publish(heatingBoost(room.id), 'inactive');
+      await mqttClient.publish(heatingSetMode(room.id), 'auto');
     }
   }
 
-  await storePoints(influxDB, config, status.room);
+  await storePoints({influxDB, config, status: status.room, logger});
 
   setInterval(async () => {
-    await storePoints(influxDB, config, status.room);
-  }, 30000);
+    await storePoints({influxDB, config, status: status.room, logger});
+  }, 10000);
 })();

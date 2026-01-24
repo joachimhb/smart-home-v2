@@ -21,6 +21,17 @@ const client = {
         resolve(res);
       });
   }),
+
+  post: (url, data, options) => new Promise((resolve, reject) => {
+    superagent.post(url, data, options)
+      .end((err, res) => {
+        if(err) {
+          return reject(err);
+        }
+
+        resolve(res);
+      });
+  }),
 };
 
 export default client;

@@ -6,7 +6,7 @@ export const ROOM_STATUS_HISTORY_SUCCESS = 'ROOM_STATUS_HISTORY_SUCCESS';
 export const ROOM_STATUS_HISTORY_ERROR   = 'ROOM_STATUS_HISTORY_ERROR';
 export const ROOM_STATUS_HISTORY_CLEAR   = 'ROOM_STATUS_HISTORY_CLEAR';
 
-export const getStatusHistory = roomId => async(dispatch, getStore) => {
+export const getStatusHistory = (roomId, options = {}) => async(dispatch, getStore) => {
   const store = getStore();
 
   if(!roomId) {
@@ -15,7 +15,7 @@ export const getStatusHistory = roomId => async(dispatch, getStore) => {
 
   const storepart = (store.roomStatusHistory || {})[roomId] || {};
 
-  console.log('getStatusHistory', roomId, JSON.stringify(storepart));
+  // console.log('getStatusHistory', roomId, JSON.stringify(storepart));
 
   if(storepart.loading || storepart.data || storepart.error) {
     return false;
@@ -27,7 +27,7 @@ export const getStatusHistory = roomId => async(dispatch, getStore) => {
   });
 
   try {
-    const res = await client.get(`${backend.api}/room-status-history/${roomId}`);
+    const res = await client.get(`${backend.api}/room-status-history/${roomId}/${options.range}`);
 
     dispatch({
       type: ROOM_STATUS_HISTORY_SUCCESS,

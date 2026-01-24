@@ -17,6 +17,8 @@ export default [
       'max-len': 0,
       'no-param-reassign': 0,
       'unicorn/prefer-at': 0,
+      camelcase: 0,
+      'no-lonely-if': 0,
     },
   },
 ];

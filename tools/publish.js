@@ -17,37 +17,7 @@ const {
 const configPath = processenv('SMART_HOME_CONFIG_PATH', '../smart-home-setup/shared/config.js');
 
 const {
-  shutterUp,
-  shutterDown,
-  shutterStop,
-  shutterMovement,
-  shutterStatus,
-  shutterToggle,
-  shutterMax,
-
-  buttonOpen,
-  buttonClose,
-  buttonActive,
-
-  fanControl,
-  fanSpeed,
-  fanTrailingTime,
-  fanMinRunTime,
-  fanLightTimeout,
-  fanMinHumidityThreshold,
-  fanMaxHumidityThreshold,
-
-  lightStatus,
-  windowStatus,
-
-  temperatureStatus,
-  humidityStatus,
-
-  automationInit,
-
-  heatingSetTemperature,
-
-  heatingTrvSetTemperature,
+  zigbeeSonoffSwitch,
 } = topics;
 
 const logger = log4js.getLogger();
@@ -73,11 +43,27 @@ logger.level = 'debug';
 
   // await mqttClient.publish(heatingTrvSetTemperature('arbeitszimmer', 'main'), {value: 20}, {retain: true});
 
-  // await mqttClient.publish(heatingSetTemperature('wohnzimmer'), 22, {retain: true});
+  // await mqttClient.publish(heatingSetTemperature('wohnzimmer'), 26, {retain: true});
 
-  await mqttClient.publish(windowStatus('arbeitszimmer', 'fenster'), 'opened', {retain: true});
+  // await mqttClient.publish(windowStatus('arbeitszimmer', 'fenster'), 'opened', {retain: true});
+
+  // await mqttClient.publish(zigbeeSonoffHeatingthermostatSet('wohnzimmer', 'front'), {
+  //   // occupied_heating_setpoint: 25,
+  //   // external_temperature_input: 12
+  //   system_mode: 'auto',
+  // });
+  await mqttClient.publish(zigbeeSonoffSwitch('wohnzimmer', 'licht-essbereich'), {
+    value: 'OFF',
+    "delayed_power_on_state": false,
+    "delayed_power_on_time": 34,
+    "detach_relay_mode": false,
+    "external_trigger_mode": "edge",
+    "linkquality": 48,
+    "network_indicator": true,
+    "turbo_mode": false,
+  });
 
   setTimeout(() => {
     process.exit(0);
-  }, 1000);
+  }, 2000);
 })();
