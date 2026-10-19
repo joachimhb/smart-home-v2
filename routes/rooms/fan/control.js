@@ -1,7 +1,7 @@
 import SHC from '@joachimhb/smart-home-common';
 
 const {
-  MqttClient,
+  // MqttClient,
   topics,
 } = SHC;
 
@@ -10,7 +10,7 @@ const {fanControl} = topics;
 export default async function control({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/fans/:fan/control',
+    path: '/rooms/:room/fan/:fan/control',
     fn: async(req, res, next) => {
       try {
         const {room, fan} = req.params;
@@ -23,4 +23,4 @@ export default async function control({mqttClient}) {
       }
     },
   };
-};
+}

@@ -8,7 +8,7 @@ const {
   heatingTriggerBoost,
 } = topics;
 
-export default async function boost({mqttClient, logger, heatingMap}) {
+export default async function boost({mqttClient, logger}) {
   return {
     method: 'post',
     path: '/rooms/:room/heating/boost',
@@ -26,4 +26,4 @@ export default async function boost({mqttClient, logger, heatingMap}) {
       }
     },
   };
-};
+}

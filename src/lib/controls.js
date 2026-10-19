@@ -4,13 +4,13 @@ const apiBase = '/api/';
 import client from './client';
 
 export const updateShutterMovement = async(room, shutter, value) => {
-  const url = `${apiBase}rooms/${room}/shutters/${shutter}/movement`;
+  const url = `${apiBase}rooms/${room}/shutter/${shutter}/movement`;
 
   await client.put(url, {value});
 };
 
 export const updateShutterValue = async(room, shutter, value) => {
-  const url = `${apiBase}rooms/${room}/shutters/${shutter}/value`;
+  const url = `${apiBase}rooms/${room}/shutter/${shutter}/value`;
 
   await client.put(url, {value});
 };
@@ -22,37 +22,49 @@ export const updateButtonActive = async(room, switchId, value) => {
 };
 
 export const setShutterMoveTo = async(room, shutter, value) => {
-  const url = `${apiBase}rooms/${room}/shutters/${shutter}/moveTo`;
+  const url = `${apiBase}rooms/${room}/shutter/${shutter}/moveTo`;
 
   await client.put(url, {value});
 };
 
 export const updateFanControl = async(room, fan, value) => {
-  const url = `${apiBase}rooms/${room}/fans/${fan}/control`;
+  const url = `${apiBase}rooms/${room}/fan/${fan}/control`;
 
   await client.put(url, {value});
 };
 
 export const updateFanSpeed = async(room, fan, value) => {
-  const url = `${apiBase}rooms/${room}/fans/${fan}/speed`;
+  const url = `${apiBase}rooms/${room}/fan/${fan}/speed`;
 
   await client.put(url, {value});
 };
 
 export const updateFanConfigValue = async(room, fan, configKey, value) => {
-  const url = `${apiBase}rooms/${room}/fans/${fan}/${configKey}`;
+  const url = `${apiBase}rooms/${room}/fan/${fan}/${configKey}`;
 
   await client.put(url, {value});
 };
 
-export const updateLightStatus = async(room, light, value) => {
-  const url = `${apiBase}rooms/${room}/lights/${light}/status`;
+export const updateLightStatus = async(room, lightId, value) => {
+  const url = `${apiBase}rooms/${room}/light/${lightId}/status`;
 
   await client.put(url, {value});
+};
+
+export const updateSwitchState = async(room, manufacturer, switchId, state) => {
+  const url = `${apiBase}rooms/${room}/switch/${manufacturer}/${switchId}/state`;
+
+  await client.put(url, {state});
 };
 
 export const triggerHeatingBoost = async(room, value) => {
   const url = `${apiBase}rooms/${room}/heating/boost`;
+
+  await client.post(url, {value});
+};
+
+export const triggerHeatingPause = async(room, value) => {
+  const url = `${apiBase}rooms/${room}/heating/pause`;
 
   await client.post(url, {value});
 };

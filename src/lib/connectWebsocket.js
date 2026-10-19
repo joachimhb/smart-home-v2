@@ -26,7 +26,7 @@ const connectWebsocket = function({store}) {
 
       const {type, id, status} = received;
 
-      console.log('MESSAGE', type, id, status);
+      // console.log('MESSAGE', type, id, status);
 
       if(type === 'room') {
         store.dispatch(updateRoomStatus(id, status));

@@ -1,12 +1,9 @@
 import _ from 'lodash-es';
 import classNames from 'classnames';
-import React, {
-  // useEffect,
-  // useRef,
-  useState,
-} from 'react';
+import React from 'react';
 
 import Light from './Light.jsx';
+import Switch from './Switch.jsx';
 import Fan from './Fan.jsx';
 import Window from './Window.jsx';
 import Shutter from './Shutter.jsx';
@@ -19,30 +16,29 @@ import {
   updateFanSpeed,
   updateFanConfigValue,
   updateLightStatus,
+  updateSwitchState,
   triggerHeatingBoost,
-} from '../lib/controls';
+  triggerHeatingPause,
+} from '../lib/controls.js';
 import RoomHistory from '../containers/RoomHistory.jsx';
+import humanDate from '../lib/humanDate.js';
 
 const Room = function(props) {
   const {
     config = {},
     roomStatus = {},
-    detailed,
+    // detailed,
     full,
   } = props;
 
   const {id: roomId} = config;
-
-  console.log({config, roomStatus});
-
-  const [_detailed, setDetailed] = useState(Boolean(detailed));
 
   const onHeatingBoost = () => {
     triggerHeatingBoost(config.id);
   };
 
   const onHeatingPause = () => {
-    triggerHeatingBoost(config.id);
+    triggerHeatingPause(config.id);
   };
 
   const classes = [
@@ -50,9 +46,6 @@ const Room = function(props) {
     `room-${roomId}`,
   ];
 
-  if(_detailed) {
-    classes.push('room--detailed');
-  }
   if(full) {
     classes.push('room--full');
   }
@@ -81,7 +74,7 @@ const Room = function(props) {
     return (
       <div className='room__general-status__temperature' title={`Seit: ${since || 'unbekannt'}`}>
         <div className='room__general-status__temperature__value'>{finalTemperature || '-'} C</div>
-        {_detailed ? <div className='room__general-status__temperature__since'>seit {humanDateDiff(since) || 'unbekannt'}</div> : null}
+        {full ? <div className='room__general-status__since'>seit {humanDate(since) || 'unbekannt'}</div> : null}
       </div>
     );
   };
@@ -96,7 +89,7 @@ const Room = function(props) {
     return (
       <div className='room__general-status__humidity' title={`Seit: ${since || 'unbekannt'}`}>
         <div className='room__general-status__humidity__value'>{value || '-'} %</div>
-        {_detailed ? <div className='room__general-status__humidity__since'>seit {humanDateDiff(since) || 'unbekannt'}</div> : null}
+        {full ? <div className='room__general-status__since'>seit {humanDate(since) || 'unbekannt'}</div> : null}
       </div>
     );
   };
@@ -105,7 +98,6 @@ const Room = function(props) {
     if(!config.heating) {
       return null;
     }
-
 
     const firstTrvId = Object.keys(roomStatus.heating_trv || {})[0];
 
@@ -128,7 +120,7 @@ const Room = function(props) {
     }
 
     return (
-      <div className='room__general-status__heating__status' style={{color, marginLeft: '36px'}}>
+      <div className='room__general-status__heating__status' style={{color, marginLeft: '22px'}}>
         {heatingSet}C - {heatingState}
       </div>
     );
@@ -149,8 +141,8 @@ const Room = function(props) {
 
     return (
       <div className='room__general-status__heating__control'>
-        <button style={{marginTop: '3px', marginLeft: '20px', paddingLeft: '4px', paddingRight: '4px'}} onClick={() => onHeatingBoost()}>boost</button>
-        <button style={{marginTop: '3px', marginLeft: '10px', paddingLeft: '4px', paddingRight: '4px'}} onClick={() => onHeatingPause()}>pause</button>
+        <button style={{marginTop: '3px', marginLeft: '10px', paddingLeft: '4px', paddingRight: '4px'}} onClick={() => onHeatingBoost()}>boost</button>
+        <button style={{marginTop: '3px', marginLeft: '8px', paddingLeft: '4px', paddingRight: '4px'}} onClick={() => onHeatingPause()}>pause</button>
       </div>
     );
   };
@@ -408,26 +400,52 @@ const Room = function(props) {
     );
   };
 
-  const renderGeneralStatus = () => (
-    <div className='room__general-status'>
-      {renderTemperature(temperature || {})}
-      {renderHumidity(humidity || {})}
-    </div>
-  );
+  const switchAndLightElements = [];
+
+  for(const light of config.lights || []) {
+    switchAndLightElements.push(
+      <Light
+        key={light.id}
+        detailed={full}
+        config={light}
+        status={_.get(roomStatus, ['light', light.id, 'status'])}
+        onChange={value => {
+          updateLightStatus(config.id, light.id, value);
+        }}
+      />
+    );
+  }
+
+  // console.log(roomId, config.zigbee);
+
+  for(const thisSwitch of _.filter(config.zigbee, {type: 'switch', wired: true})) {
+    // console.log({roomStatus})
+    switchAndLightElements.push(
+      <Switch
+        key={thisSwitch.id}
+        detailed={full}
+        config={thisSwitch}
+        status={_.get(roomStatus, ['switch', thisSwitch.id, 'status'])}
+        onChange={value => {
+          updateSwitchState(config.id, thisSwitch.manufacturer, thisSwitch.id, value);
+        }}
+      />
+    );
+  }
 
   const renderStatus = () => {
     const fanElements = [];
     const windowElements = [];
 
     for(const fan of config.fans || []) {
-      if(config.id === 'schlafzimmer' && !_detailed) {
+      if(config.id === 'schlafzimmer') {
         continue;
       }
 
       fanElements.push(
         <Fan
           key={fan.id}
-          detailed={_detailed}
+          detailed={full}
           config={fan}
           status={_.get(roomStatus, ['fan', fan.id])}
           onControlChange={value => {
@@ -444,7 +462,7 @@ const Room = function(props) {
     }
 
     for(const windowConfig of config.windows || []) {
-      const {id, shutterId} = windowConfig;
+      const {id, shutterId, zigbeeShutterId} = windowConfig;
 
       let shutter = null;
 
@@ -452,10 +470,27 @@ const Room = function(props) {
         const shutterConfig = _.find(config.shutters || [], {id: shutterId});
         const shutterData = _.get(roomStatus, ['shutter', shutterId]);
 
+        const shutterButton = _.find(config.buttons, button => {
+          if(button.onClose && button.onClose.action === 'shutterToggle') {
+            if(button.onClose.actionParams.includes(roomId) && button.onClose.actionParams.includes(shutterId)) {
+              return true;
+            }
+          }
+        });
+
+        let buttonData = null;
+
+        if(shutterButton) {
+          buttonData = _.get(roomStatus, ['button', shutterButton.id]);
+        }
+
         shutter = (
           <Shutter
             config={shutterConfig}
             data={shutterData}
+            buttonData={buttonData}
+            button={shutterButton}
+            full={full}
             onMovementChange={direction => {
               updateShutterMovement(config.id, shutterId, direction);
             }}
@@ -466,7 +501,7 @@ const Room = function(props) {
       windowElements.push(
         <Window
           key={id}
-          detailed={_detailed}
+          detailed={full}
           config={windowConfig}
           status={_.get(roomStatus, ['window', id, 'status'])}
           shutter={shutter}
@@ -474,37 +509,38 @@ const Room = function(props) {
       );
     }
 
-    const lightElements = [];
+    const renderFans = () => {
+      if(fanElements.length) {
+        return (
+          <div className='room__status__fans'>
+            {fanElements}
+          </div>
+        );
+      }
+    };
 
-    for(const light of config.lights || []) {
-      lightElements.push(
-        <Light
-          key={light.id}
-          detailed={_detailed}
-          config={light}
-          status={_.get(roomStatus, ['lights', light.id, 'status'])}
-          onChange={value => {
-            updateLightStatus(config.id, light.id, value);
-          }}
-        />
-      );
-    }
+    const renderWindows = () => {
+      if(windowElements.length) {
+        return (
+          <div className='room__status__windows'>
+            {windowElements}
+          </div>
+        );
+      }
+    };
+
+    const renderHeating = () => (
+      <div className='room__general-status__heating'>
+        {renderTemperatureStatus()}
+        {renderTemperatureControl()}
+      </div>
+    );
 
     return (
       <div className='room__status'>
-        <div className='room__status__lights'>
-          {lightElements}
-        </div>
-        <div className='room__status__fans'>
-          {fanElements}
-        </div>
-        <div className='room__status__windows'>
-          {windowElements}
-        </div>
-        <div className='room__general-status__heating'>
-          {renderTemperatureStatus()}
-          {renderTemperatureControl()}
-        </div>
+        {renderFans()}
+        {renderWindows()}
+        {renderHeating()}
         {renderFullDetails()}
       </div>
     );
@@ -534,11 +570,16 @@ const Room = function(props) {
     <div className={classNames(classes)} style={style}>
       {full ? <div className='overview-link' onClick={jumpToOverview}>zurueck</div> : null}
       <div className='room__header'>
-        <div className='room__header__label' onClick={() => setDetailed(!_detailed)}>{config.label}</div>
-        {renderGeneralStatus()}
+        <div className='room__header__label' onClick={() => jumpToDetails()}>{config.label}</div>
+      </div>
+      <div className='room__header'>
+        {renderTemperature(temperature || {})}
+        {renderHumidity(humidity || {})}
+        <div className='room__status__lights'>
+          {switchAndLightElements}
+        </div>
       </div>
       {renderStatus()}
-      {full ? null : <div className='room-link' onClick={jumpToDetails}>details</div>}
     </div>
   );
 };

@@ -10,7 +10,7 @@ const {fanMinRunTime} = topics;
 export default async function minRunTime({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/fans/:fan/minRunTime',
+    path: '/rooms/:room/fan/:fan/minRunTime',
     fn: async(req, res, next) => {
       try {
         const {room, fan} = req.params;

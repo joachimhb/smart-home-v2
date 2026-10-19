@@ -14,7 +14,7 @@ const {
 export default async function speed({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/fans/:fan/speed',
+    path: '/rooms/:room/fan/:fan/speed',
     fn: async(req, res, next) => {
       try {
         const {room, fan} = req.params;

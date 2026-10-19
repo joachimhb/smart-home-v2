@@ -6,4 +6,4 @@ export default async function getRoomsConfig({config}) {
       res.json(config.rooms);
     },
   };
-};
+}

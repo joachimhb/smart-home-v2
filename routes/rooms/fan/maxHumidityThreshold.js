@@ -5,17 +5,17 @@ const {
   topics,
 } = SHC;
 
-const {fanMinHumidityThreshold} = topics;
+const {fanMaxHumidityThreshold} = topics;
 
-export default async function minHumidityThreshold({mqttClient}) {
+export default async function maxHumidityThreshold({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/fans/:fan/minHumidityThreshold',
+    path: '/rooms/:room/fan/:fan/maxHumidityThreshold',
     fn: async(req, res, next) => {
       try {
         const {room, fan} = req.params;
 
-        await mqttClient.publish(fanMinHumidityThreshold(room, fan), {value: Number(req.body.value)}, {retain: true});
+        await mqttClient.publish(fanMaxHumidityThreshold(room, fan), {value: Number(req.body.value)}, {retain: true});
 
         res.json({handled: true});
       } catch(err) {

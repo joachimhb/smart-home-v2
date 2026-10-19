@@ -65,8 +65,10 @@ const {
 
   heatingSetTemperature,
   heatingTriggerBoost,
+  heatingTriggerPause,
   heatingSetMode,
   heatingBoost,
+  heatingPause,
 
   heatingTrvSetTemperature,
   heatingTrvLocalTemperature,
@@ -89,6 +91,8 @@ const {
   zigbeeTuyaSceneSwitch,
   zigbeeSonoffSwitch,
   zigbeeSonoffSwitchSet,
+
+  zigbeeSonoffShutter,
 } = topics;
 
 const logger = log4js.getLogger();
@@ -124,7 +128,7 @@ logger.level = 'debug';
 
   const wss = new WebSocketServer({port: wsPort});
 
-  const raspis = ['kammer', 'arbeitszimmer', 'wohnzimmer'];
+  const raspis = ['kammer', 'arbeitszimmer'];
 
   const clientsBroadcast = function(data) {
     for(const client of wss.clients) {
@@ -164,7 +168,7 @@ logger.level = 'debug';
   });
 
   const handleZigbeeMessage = async(topic, data) => {
-    const [start, finalTopic] = topic.split('/');
+    const [, finalTopic] = topic.split('/');
 
     const [
       areaId,
@@ -321,7 +325,63 @@ logger.level = 'debug';
           }
 
           _.set(status, sourcePath, {value: state, since: new Date()});
+
+          const updated = {
+            type: 'room',
+            id: areaId,
+            status: status.room[areaId],
+          };
+
+          clientsBroadcast(updated);
         }
+      }
+    }
+
+    if(manufacturer === 'sonoff' && elementType === 'shutter') {
+      const {
+        position,
+        motor_run_status,
+      } = data;
+
+      logger.debug(`${topic}: `, {areaId, manufacturer, elementType, elementId, data});
+
+      const room = _.find(config.rooms, {id: areaId});
+
+      if(!room) {
+        return;
+      }
+
+      const zigbeeElement = _.find(room.zigbee || [], {manufacturer, type: elementType, id: elementId});
+
+      if(zigbeeElement) {
+        let movement = 'stop';
+
+        if(position !== 0 && position !== 100) {
+          if(motor_run_status === 'Reverse') {
+            movement = 'up';
+          } else if(motor_run_status === 'Forward') {
+            movement = 'down';
+          }
+        }
+
+        const closedPercent = 100 - position;
+
+        await mqttClient.publish(shutterStatus(areaId, elementId), {value: closedPercent}, {retain: true});
+        await mqttClient.publish(shutterMovement(areaId, elementId), {value: movement});
+
+        // const sourcePath = [
+        //   'room',
+        //   areaId,
+        //   elementType,
+        //   elementId,
+        //   'status',
+        // ].filter(Boolean);
+
+        // const sourceLabel = zigbeeElement.label || `${areaId}: ${elementId}`;
+
+        // const current = _.get(status, sourcePath, {value: 'unknown'});
+
+        // console.log(sourceLabel, current, state);
       }
     }
   };
@@ -359,6 +419,8 @@ logger.level = 'debug';
       elementId,
       subArea,
     ] = topic.split('/');
+
+    // console.log(topic);
 
     if(area === 'zigbee2mqtt') {
       return handleZigbeeMessage(topic, data);
@@ -401,11 +463,23 @@ logger.level = 'debug';
       if(element === 'window') {
         const window = _.find(room.windows || [], {id: elementId});
 
-        if(window && window.shutterId) {
-          if(data.value === 'opened') {
-            await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 80}, {retain: true});
-          } else if(data.value === 'closed') {
-            await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 100}, {retain: true});
+        if(window) {
+          if(window.shutterId) {
+            if(data.value === 'opened') {
+              await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 80}, {retain: true});
+            } else if(data.value === 'closed') {
+              await mqttClient.publish(shutterMax(areaId, window.shutterId), {value: 100}, {retain: true});
+            }
+          }
+
+          if(heatingMap[areaId]) {
+            if(data.value === 'opened') {
+              await heatingMap[areaId].setManual(16);
+            } else if(data.value === 'closed') {
+              setTimeout(async () => {
+                await heatingMap[areaId].setAuto();
+              }, millisecond('5m'));
+            }
           }
         }
       }
@@ -444,7 +518,9 @@ logger.level = 'debug';
         if(_.get(roomStatus, ['heating', 'overall', 'boost', 'value']) === 'active') {
           return;
         }
-
+        if(_.get(roomStatus, ['heating', 'overall', 'pause', 'value']) === 'active') {
+          return;
+        }
 
         await mqttClient.publish(heatingBoost(areaId), 'active');
 
@@ -454,6 +530,26 @@ logger.level = 'debug';
           await mqttClient.publish(heatingBoost(areaId), 'inactive');
           await heatingMap[areaId].setAuto();
         }, millisecond('10m'));
+      }
+
+      if(topic === heatingTriggerPause(areaId) && heatingMap[areaId]) {
+        const roomStatus = _.get(status, ['room', areaId], {});
+
+        if(_.get(roomStatus, ['heating', 'overall', 'boost', 'value']) === 'active') {
+          return;
+        }
+        if(_.get(roomStatus, ['heating', 'overall', 'pause', 'value']) === 'active') {
+          return;
+        }
+
+        await mqttClient.publish(heatingPause(areaId), 'active');
+
+        await heatingMap[areaId].setHeatingTemperature(17);
+
+        setTimeout(async () => {
+          await mqttClient.publish(heatingPause(areaId), 'inactive');
+          await heatingMap[areaId].setAuto();
+        }, millisecond('5m'));
       }
     }
   };
@@ -615,15 +711,25 @@ logger.level = 'debug';
       if(manufacturer === 'sonoff' && type === 'switch') {
         await mqttClient.subscribe(zigbeeSonoffSwitch(room.id, id));
       }
+
+      if(manufacturer === 'sonoff' && type === 'shutter') {
+        await mqttClient.subscribe(zigbeeSonoffShutter(room.id, id));
+
+        await mqttClient.subscribe(shutterMovement(room.id, id));
+        await mqttClient.subscribe(shutterStatus(room.id, id));
+      }
     }
 
     if(room.heating) {
       await mqttClient.subscribe(heatingSetTemperature(room.id));
       await mqttClient.subscribe(heatingTriggerBoost(room.id));
+      await mqttClient.subscribe(heatingTriggerPause(room.id));
       await mqttClient.subscribe(heatingBoost(room.id));
+      await mqttClient.subscribe(heatingPause(room.id));
       await mqttClient.subscribe(heatingSetMode(room.id));
 
       await mqttClient.publish(heatingBoost(room.id), 'inactive');
+      await mqttClient.publish(heatingPause(room.id), 'inactive');
       await mqttClient.publish(heatingSetMode(room.id), 'auto');
     }
   }

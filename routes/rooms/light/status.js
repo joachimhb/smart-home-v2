@@ -1,7 +1,7 @@
 import SHC from '@joachimhb/smart-home-common';
 
 const {
-  MqttClient,
+  // MqttClient,
   topics,
 } = SHC;
 
@@ -10,7 +10,7 @@ const {lightStatus} = topics;
 export default async function status({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/lights/:light/status',
+    path: '/rooms/:room/light/:light/status',
     fn: async(req, res, next) => {
       try {
         const {room, light} = req.params;
@@ -23,4 +23,4 @@ export default async function status({mqttClient}) {
       }
     },
   };
-};
+}

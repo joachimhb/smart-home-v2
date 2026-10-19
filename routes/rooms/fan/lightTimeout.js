@@ -5,17 +5,17 @@ const {
   topics,
 } = SHC;
 
-const {fanTrailingTime} = topics;
+const {fanLightTimeout} = topics;
 
-export default async function trailingTime({mqttClient}) {
+export default async function lightTimout({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/fans/:fan/trailingTime',
+    path: '/rooms/:room/fan/:fan/lightTimeout',
     fn: async(req, res, next) => {
       try {
         const {room, fan} = req.params;
 
-        await mqttClient.publish(fanTrailingTime(room, fan), {value: Number(req.body.value)}, {retain: true});
+        await mqttClient.publish(fanLightTimeout(room, fan), {value: Number(req.body.value)}, {retain: true});
 
         res.json({handled: true});
       } catch(err) {

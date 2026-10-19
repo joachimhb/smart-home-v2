@@ -10,19 +10,21 @@ import WebsocketConnectionContext from '../contexts/WebsocketConnection';
 const Shutter = function(props) {
   const {
     // config  = {},
+    button = {},
     data = {},
-    // detailed
+    full,
   } = props;
 
   const {value: statusValue,       since: statusSince}       = data.status || {};
   const {value: movementValue,     since: movementSince}     = data.movement || {};
-  // const {value: buttonActiveValue, since: buttonActiveSince} = buttonStatus.active || {};
+  const {value: switchActiveValue, since: switchActiveSince} = data.switchActive || {};
 
   const websocketConnected = useContext(WebsocketConnectionContext);
 
   const onUpClick     = () => props.onMovementChange('up');
   const onStopClick   = () => props.onMovementChange('stop');
   const onDownClick   = () => props.onMovementChange('down');
+  const onLockClick   = () => props.onSwitchActiveStatus('toggle');
 
   const buttonClasses = [
     'window__shutter__controls__button',
@@ -50,6 +52,20 @@ const Shutter = function(props) {
     movementValue === 'down' ? 'active' : '',
   ];
 
+  const renderSwitch = () => {
+    if(!full || !button) {
+      return;
+    }
+
+    return (
+      <div className='window__switch__controls'>
+        <button disabled={!websocketConnected} onClick={onLockClick}>
+          <div className='lock'><div />L</div>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className='window__shutter'>
       <div className='window__shutter__status' title={`Seit: ${statusSince}`}>
@@ -66,6 +82,7 @@ const Shutter = function(props) {
           <div className='arrow'><span /></div>
         </button>
       </div>
+      {renderSwitch()}
     </div>
   );
 };

@@ -5,17 +5,17 @@ const {
   topics,
 } = SHC;
 
-const {fanLightTimeout} = topics;
+const {fanMinHumidityThreshold} = topics;
 
-export default async function lightTimout({mqttClient}) {
+export default async function minHumidityThreshold({mqttClient}) {
   return {
     method: 'put',
-    path: '/rooms/:room/fans/:fan/lightTimeout',
+    path: '/rooms/:room/fan/:fan/minHumidityThreshold',
     fn: async(req, res, next) => {
       try {
         const {room, fan} = req.params;
 
-        await mqttClient.publish(fanLightTimeout(room, fan), {value: Number(req.body.value)}, {retain: true});
+        await mqttClient.publish(fanMinHumidityThreshold(room, fan), {value: Number(req.body.value)}, {retain: true});
 
         res.json({handled: true});
       } catch(err) {
